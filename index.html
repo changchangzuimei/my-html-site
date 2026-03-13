@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自定义多图展示（增强版）</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* 全局样式重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #1f1e25; 
+            padding: 50px;
+            font-family: "Microsoft YaHei", sans-serif;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* 标题样式 + 自定义输入框 */
+        .title-container {
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .title-input {
+            padding: 8px 12px;
+            font-size: 36px;
+            font-family: "Microsoft YaHei", Regular;
+            background-color: #333;
+            color: #cec5b1;
+            border: 1px solid #666;
+            border-radius: 6px;
+            width: 300px;
+            outline: none;
+        }
+
+        .title-input:focus {
+            border-color: #2196F3;
+        }
+
+        #titleDisplay {
+            display: none;
+            color: #cec5b1;
+        }
+
+        #exportTitle {
+            color: #cec5b1;
+            font-size: 36px;
+            font-family: "Microsoft YaHei", Regular;
+            min-width: 200px;
+            margin-bottom: 20px;
+        }
+
+        /* 布局模板选择器 */
+        .layout-selector {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background-color: #292830;
+            border-radius: 8px;
+        }
+
+        .layout-label {
+            color: #cec5b1;
+            font-size: 16px;
+            min-width: 80px;
+        }
+
+        .layout-btn {
+            padding: 8px 20px;
+            border: 1px solid #666;
+            border-radius: 4px;
+            background-color: #333;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .layout-btn.active {
+            border-color: #2196F3;
+            background-color: #444;
+        }
+
+        .layout-btn:hover:not(.active) {
+            border-color: #888;
+        }
+
+        /* 自定义设置面板样式 */
+        .settings-panel {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding: 15px;
+            background-color: #292830;
+            border-radius: 8px;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 300px;
+        }
+
+        .setting-label {
+            color: #cec5b1;
+            font-size: 16px;
+            min-width: 80px;
+        }
+
+        .setting-input {
+            padding: 6px 10px;
+            font-size: 14px;
+            background-color: #333;
+            color: #cec5b1;
+            border: 1px solid #666;
+            border-radius: 4px;
+            width: 80px;
+            outline: none;
+        }
+
+        .setting-input:focus {
+            border-color: #2196F3;
+        }
+
+        /* 滑块样式 */
+        .setting-slider {
+            flex: 1;
+            height: 6px;
+            background-color: #555;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .setting-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #2196F3;
+            cursor: pointer;
+            border: none;
+        }
+
+        .setting-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #2196F3;
+            cursor: pointer;
+            border: none;
+        }
+
+        /* 隐藏确认设置按钮 */
+        .apply-btn {
+            display: none !important;
+        }
+
+        .custom-btn {
+            padding: 8px 16px;
+            border: 1px solid #666;
+            border-radius: 6px;
+            background-color: #333;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .custom-btn:hover {
+            border-color: #2196F3;
+            background-color: #444;
+        }
+
+        /* 操作按钮区域 - 固定在右下角 */
+        .action-area {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* 质量选择容器 */
+        .quality-select {
+            display: flex;
+            gap: 8px;
+            background-color: #333;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .quality-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quality-btn.active {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .quality-btn:not(.active) {
+            background-color: #555;
+            color: #ccc;
+        }
+
+        .quality-btn:not(.active):hover {
+            background-color: #666;
+        }
+
+        .action-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-family: "Microsoft YaHei", Regular;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .download-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .copy-btn {
+            background-color: #FF9800;
+            color: white;
+        }
+
+        .action-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        /* 图片容器 - 核心布局（整图导出的容器） */
+        #export-container {
+            position: relative;
+            background-color: #1f1e25;
+            padding: 50px;
+            display: inline-block;
+            opacity: 1;
+            z-index: 1;
+        }
+
+        /* 多图展示容器 - 横向布局 */
+        .image-container.horizontal {
+            display: flex;
+            align-items: stretch; /* 高度拉伸一致 */
+            gap: 15px; /* 默认间距 */
+            overflow-x: auto;
+            padding-bottom: 10px;
+            position: relative;
+            transition: gap 0.2s ease;
+        }
+
+        /* 新增：横版五图复合布局 - 移除固定16:9限制 */
+        .image-container.five-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 800px; /* 固定主宽度，保证2×2网格比例 */
+            margin: 0 auto;
+        }
+
+        /* 移除16:9比例容器样式 */
+        .aspect-16-9 {
+            display: none;
+        }
+
+        /* 顶部通栏主视觉区 - 自适应图片比例 */
+        .five-grid-header {
+            width: 100%;
+            position: relative;
+            border-radius: inherit;
+            overflow: hidden;
+            background-color: #222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 底部2×2网格区 */
+        .five-grid-body {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 15px;
+            width: 100%;
+        }
+
+        /* 五图布局下的图片项样式 - 自适应图片比例 */
+        .five-grid .image-item {
+            width: 100%;
+            height: auto;
+            min-height: auto;
+            max-height: none;
+            flex: none;
+            position: relative;
+            top: auto;
+            left: auto;
+        }
+
+        /* 单张图片样式 */
+        .image-item {
+            flex: 0 0 auto;
+            width: 300px;
+            min-height: 500px;
+            max-height: 80vh;
+            position: relative;
+            border-radius: 0px; /* 默认直角 */
+            overflow: hidden;
+            transition: all 0.3s;
+            background-color: #222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none; /* 禁用触摸默认行为 */
+        }
+
+        /* 五图布局图片自适应比例样式 */
+        .five-grid .image-item img {
+            width: 100%;
+            height: auto;
+            object-fit: contain; /* 不拉伸，完整显示图片 */
+            object-position: center; /* 图片居中 */
+            position: relative;
+            z-index: 1;
+            pointer-events: none;
+            border-radius: inherit;
+            display: block;
+        }
+
+        /* 图片操作按钮 - 右上角（关键修复：提升z-index + 确保始终可点击） */
+        .image-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 999; /* 大幅提升层级，避免被图片遮挡 */
+            pointer-events: auto; /* 强制启用点击事件 */
+        }
+
+        /* 关键修复：hover时强制显示按钮，且按钮区域不受图片遮挡 */
+        .image-item:hover .image-actions {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .action-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            border: none;
+            transition: all 0.2s ease;
+            pointer-events: auto; /* 确保按钮自身可点击 */
+            z-index: 1000; /* 按钮自身层级最高 */
+        }
+
+        .action-icon:hover {
+            background-color: #2196F3;
+            transform: scale(1.1);
+        }
+
+        .delete-icon:hover {
+            background-color: #f44336;
+        }
+
+        /* 拖拽换位相关样式 */
+        .image-item.drag-over {
+            background-color: rgba(33, 150, 243, 0.1);
+        }
+
+        .image-item.dragging {
+            opacity: 0.7;
+            transform: scale(0.98);
+            z-index: 10;
+        }
+
+        /* 图片本身样式（关键修复：降低图片z-index，避免遮挡按钮） */
+        .image-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            position: relative;
+            z-index: 1; /* 图片层级低于按钮 */
+            pointer-events: none; /* 避免图片拦截拖拽/点击事件 */
+            border-radius: inherit; /* 继承容器的圆角 */
+        }
+
+        /* 图片占位提示 - 有图片时隐藏 */
+        .placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-family: "Microsoft YaHei", Regular;
+            font-size: 18px;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 有图片时隐藏占位提示 */
+        .image-item.has-image .placeholder {
+            display: none;
+        }
+
+        .placeholder-icon {
+            font-size: 48px;
+            display: none;
+        }
+
+        /* 添加图片按钮 */
+        .add-image-btn {
+            margin: 20px 0;
+            padding: 10px 20px;
+            border: 1px solid #2196F3;
+            border-radius: 6px;
+            background-color: #333;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .add-image-btn:hover {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        /* 多图上传提示 - 移除竖向相关描述 */
+        .multi-upload-tip {
+            color: #cec5b1;
+            font-size: 14px;
+            margin: 10px 0;
+            padding: 8px;
+            background-color: rgba(51,51,51,0.5);
+            border-radius: 4px;
+        }
+
+        /* 隐藏页面下方的提示信息 */
+        .tip {
+            display: none !important;
+        }
+
+        /* 加载提示 */
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 20px 40px;
+            border-radius: 8px;
+            font-family: "Microsoft YaHei", Regular;
+            z-index: 999;
+            display: none;
+        }
+
+        /* 适配小屏幕 */
+        @media (max-width: 1600px) {
+            .image-item {
+                width: 280px;
+                min-height: 480px;
+            }
+            /* 五图布局适配 */
+            .image-container.five-grid {
+                width: 700px;
+            }
+        }
+
+        /* 适配移动端按钮布局 */
+        @media (max-width: 768px) {
+            .action-area {
+                flex-direction: column;
+                bottom: 20px;
+                right: 20px;
+            }
+            .quality-select {
+                flex-direction: column;
+            }
+            .title-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .title-input {
+                width: 100%;
+                font-size: 24px;
+            }
+            #exportTitle {
+                font-size: 24px;
+            }
+            .image-item {
+                width: 250px;
+                min-height: 450px;
+                max-height: 70vh;
+            }
+            /* 五图布局移动端适配 */
+            .image-container.five-grid {
+                width: 100%;
+            }
+            .settings-panel, .layout-selector {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .setting-item, .layout-selector {
+                width: 100%;
+            }
+            .setting-input {
+                width: 80px;
+            }
+            .action-icon {
+                width: 30px;
+                height: 30px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载提示 -->
+    <div class="loading" id="loading">处理中，请稍候...</div>
+    
+    <!-- 标题容器（支持自定义）- 修改默认值为游戏名字 -->
+    <div class="title-container">
+        <input type="text" class="title-input" id="titleInput" placeholder="输入游戏名字" value="游戏名字">
+        <button class="custom-btn" id="customBtn">确认</button>
+        <div class="title-display" id="titleDisplay">游戏名字</div>
+    </div>
+
+    <!-- 布局模板选择器 - 修改按钮文字：横向拼接→竖屏五图，横版五图布局→横板五图 -->
+    <div class="layout-selector">
+        <div class="layout-label">布局方向：</div>
+        <button class="layout-btn active" data-layout="horizontal">竖屏五图</button>
+        <button class="layout-btn" data-layout="five-grid">横板五图</button>
+    </div>
+
+    <!-- 自定义设置面板 -->
+    <div class="settings-panel">
+        <div class="setting-item">
+            <label class="setting-label">图片间距(px)：</label>
+            <input type="number" class="setting-input" id="gapInput" value="15" min="0" max="100">
+            <input type="range" class="setting-slider" id="gapSlider" min="0" max="100" value="15">
+        </div>
+        <div class="setting-item">
+            <label class="setting-label">圆角大小(px)：</label>
+            <input type="number" class="setting-input" id="radiusInput" value="0" min="0" max="100">
+            <input type="range" class="setting-slider" id="radiusSlider" min="0" max="100" value="0">
+        </div>
+        <!-- 确认设置按钮 - 已通过CSS隐藏 -->
+        <button class="apply-btn" id="applySettingsBtn">确认设置</button>
+    </div>
+
+    <!-- 添加图片按钮 -->
+    <button class="add-image-btn" id="addImageBtn">+ 添加新图片</button>
+
+    <!-- 多图上传提示 - 移除竖向相关描述 -->
+    <div class="multi-upload-tip">✨ 新增功能：横向拼接 | 横版五图复合布局 | 自动识别上传图片数量 | 鼠标悬停图片右上角显示+/-按钮（插入/删除） | 按住图片拖拽换位 | 支持多选图片批量上传 | 自定义图片间距和圆角（实时预览）</div>
+    
+    <!-- 导出容器 -->
+    <div id="export-container">
+        <div class="title-display" id="exportTitle">游戏名字</div>
+        
+        <!-- 多图展示容器 -->
+        <div class="image-container horizontal" id="imageContainer">
+            <!-- 初始默认一个图片容器 -->
+            <div class="image-item" id="imageBox1" data-index="1" draggable="true">
+                <div class="image-actions">
+                    <button class="action-icon add-icon" title="在当前位置前插入图片">+</button>
+                    <button class="action-icon delete-icon" title="删除当前图片">×</button>
+                </div>
+                <div class="placeholder">
+                    <div class="placeholder-icon">📌</div>
+                    <div>拖拽/粘贴游戏图片</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示信息 - 已通过CSS隐藏 -->
+    <div class="tip">提示：支持横向/横版五图布局切换 | 上传多少张显示多少张 | 鼠标悬停图片右上角显示+/-按钮（插入/删除） | 按住图片拖拽换位 | 多选图片自动批量上传 | 标题可自定义 | 图片间距和圆角支持实时预览 | 下载和复制都可选择标清/高清/无损PNG质量</div>
+    
+    <!-- 操作按钮 -->
+    <div class="action-area">
+        <div class="quality-select">
+            <button class="quality-btn" data-quality="standard">标清</button>
+            <button class="quality-btn" data-quality="hd">高清</button>
+            <button class="quality-btn active" data-quality="lossless">无损PNG</button>
+        </div>
+        <button class="action-btn download-btn" id="downloadBtn">下载整图</button>
+        <button class="action-btn copy-btn" id="copyBtn">复制整图</button>
+    </div>
+
+    <script>
+        let currentBoxIndex = 1;
+        let imageBase64List = { 1: '' }; // 动态存储图片数据
+        let selectedLayout = 'horizontal'; // 默认横向布局
+        let selectedQuality = 'lossless';
+        // 新增：防止重复点击的锁
+        let isInserting = false;
+        
+        // DOM元素引用
+        const titleInput = document.getElementById('titleInput');
+        const titleDisplay = document.getElementById('titleDisplay');
+        const exportTitle = document.getElementById('exportTitle');
+        const loading = document.getElementById('loading');
+        const customBtn = document.getElementById('customBtn');
+        const imageContainer = document.getElementById('imageContainer');
+        const addImageBtn = document.getElementById('addImageBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const layoutBtns = document.querySelectorAll('.layout-btn');
+        const gapInput = document.getElementById('gapInput');
+        const gapSlider = document.getElementById('gapSlider');
+        const radiusInput = document.getElementById('radiusInput');
+        const radiusSlider = document.getElementById('radiusSlider');
+        const applySettingsBtn = document.getElementById('applySettingsBtn');
+        const qualityBtns = document.querySelectorAll('.quality-btn');
+        
+        // 标题自定义功能
+        function updateTitle() {
+            const title = titleInput.value.trim() || '游戏名字';
+            titleDisplay.textContent = title;
+            exportTitle.textContent = title;
+        }
+        
+        // 点击确认按钮更新标题
+        customBtn.addEventListener('click', updateTitle);
+        
+        // 按Enter键确认标题
+        titleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                updateTitle();
+                // 失去焦点，关闭输入法
+                titleInput.blur();
+            }
+        });
+        
+        // 布局切换功能
+        layoutBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                layoutBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedLayout = btn.dataset.layout;
+                
+                // 更新容器类名
+                imageContainer.className = `image-container ${selectedLayout}`;
+                
+                // 重构布局结构
+                if (selectedLayout === 'five-grid') {
+                    rebuildFiveGridStructure();
+                } else {
+                    rebuildHorizontalStructure();
+                }
+                
+                // 重新应用间距设置
+                applyGapSettings();
+                // 重新应用圆角设置
+                applyRadiusSettings();
+                // 重新绑定事件
+                initImageBoxEvents();
+                initDragDropSwap();
+            });
+        });
+        
+        // 重构横向布局结构
+        function rebuildHorizontalStructure() {
+            imageContainer.innerHTML = '';
+            // 保留现有图片数据
+            const keys = Object.keys(imageBase64List).sort((a, b) => a - b);
+            if (keys.length === 0) {
+                // 创建默认图片容器
+                createImageBox(1);
+            } else {
+                keys.forEach(key => {
+                    const box = createImageBox(key);
+                    if (imageBase64List[key]) {
+                        box.querySelector('img') ? box.querySelector('img').src = imageBase64List[key] : '';
+                    }
+                });
+            }
+        }
+        
+        // 重构五图布局结构（修改：移除16:9容器，自适应图片比例）
+        function rebuildFiveGridStructure() {
+            imageContainer.innerHTML = '';
+            
+            // 创建顶部通栏容器（自适应图片比例）
+            const headerContainer = document.createElement('div');
+            headerContainer.className = 'five-grid-header';
+            
+            // 第一个图片容器
+            const firstBox = createImageBox(1);
+            headerContainer.appendChild(firstBox);
+            if (imageBase64List[1]) {
+                firstBox.querySelector('img') ? firstBox.querySelector('img').src = imageBase64List[1] : '';
+                firstBox.classList.add('has-image'); // 标记有图片，隐藏占位符
+            }
+            
+            imageContainer.appendChild(headerContainer);
+            
+            // 创建底部2×2网格容器
+            const bodyContainer = document.createElement('div');
+            bodyContainer.className = 'five-grid-body';
+            imageContainer.appendChild(bodyContainer);
+            
+            // 创建4个网格项（2-5），自适应图片比例
+            for (let i = 2; i <= 5; i++) {
+                const box = createImageBox(i);
+                if (imageBase64List[i]) {
+                    box.querySelector('img') ? box.querySelector('img').src = imageBase64List[i] : '';
+                    box.classList.add('has-image'); // 标记有图片，隐藏占位符
+                }
+                
+                bodyContainer.appendChild(box);
+            }
+            
+            // 处理多余的图片数据（隐藏）
+            const keys = Object.keys(imageBase64List).sort((a, b) => a - b);
+            keys.forEach(key => {
+                if (key > 5) {
+                    const box = createImageBox(key);
+                    box.style.display = 'none';
+                    if (imageBase64List[key]) {
+                        box.querySelector('img') ? box.querySelector('img').src = imageBase64List[key] : '';
+                        box.classList.add('has-image'); // 标记有图片，隐藏占位符
+                    }
+                    
+                    bodyContainer.appendChild(box);
+                }
+            });
+        }
+        
+        // 创建图片容器
+        function createImageBox(index) {
+            const box = document.createElement('div');
+            box.className = 'image-item';
+            box.id = `imageBox${index}`;
+            box.dataset.index = index;
+            box.draggable = true;
+            // 应用当前圆角设置
+            box.style.borderRadius = `${radiusInput.value}px`;
+            
+            // 操作按钮
+            const actions = document.createElement('div');
+            actions.className = 'image-actions';
+            
+            const addBtn = document.createElement('button');
+            addBtn.className = 'action-icon add-icon';
+            addBtn.title = '在当前位置前插入图片';
+            addBtn.textContent = '+';
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'action-icon delete-icon';
+            deleteBtn.title = '删除当前图片';
+            deleteBtn.textContent = '×';
+            
+            actions.appendChild(addBtn);
+            actions.appendChild(deleteBtn);
+            box.appendChild(actions);
+            
+            // 占位符
+            const placeholder = document.createElement('div');
+            placeholder.className = 'placeholder';
+            
+            const placeholderIcon = document.createElement('div');
+            placeholderIcon.className = 'placeholder-icon';
+            placeholderIcon.textContent = '📌';
+            
+            const placeholderText = document.createElement('div');
+            placeholderText.textContent = '拖拽/粘贴游戏图片';
+            
+            placeholder.appendChild(placeholderIcon);
+            placeholder.appendChild(placeholderText);
+            box.appendChild(placeholder);
+            
+            // 如果有图片数据，添加图片元素并隐藏占位符
+            if (imageBase64List[index]) {
+                const img = document.createElement('img');
+                img.src = imageBase64List[index];
+                img.alt = `游戏图片${index}`;
+                box.insertBefore(img, placeholder);
+                box.classList.add('has-image'); // 标记有图片
+            }
+            
+            imageContainer.appendChild(box);
+            return box;
+        }
+        
+        // 初始化图片容器事件
+        function initImageBoxEvents() {
+            const imageBoxes = document.querySelectorAll('.image-item');
+            
+            imageBoxes.forEach(box => {
+                // 粘贴图片
+                box.addEventListener('paste', handlePaste);
+                
+                // 拖拽上传
+                box.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    box.classList.add('drag-over');
+                });
+                
+                box.addEventListener('dragleave', () => {
+                    box.classList.remove('drag-over');
+                });
+                
+                box.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    box.classList.remove('drag-over');
+                    handleDrop(e, box);
+                });
+                
+                // 点击添加图片
+                box.querySelector('.add-icon').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    insertImageBefore(box.dataset.index);
+                });
+                
+                // 删除图片
+                box.querySelector('.delete-icon').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteImage(box.dataset.index);
+                });
+                
+                // 点击上传（隐藏的input）
+                box.addEventListener('click', () => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.multiple = true;
+                    input.onchange = (e) => {
+                        handleFileSelect(e, box.dataset.index);
+                    };
+                    input.click();
+                });
+            });
+        }
+        
+        // 拖拽换位功能
+        function initDragDropSwap() {
+            const imageBoxes = document.querySelectorAll('.image-item');
+            let draggedItem = null;
+            
+            imageBoxes.forEach(box => {
+                box.addEventListener('dragstart', () => {
+                    draggedItem = box;
+                    setTimeout(() => {
+                        box.classList.add('dragging');
+                    }, 0);
+                });
+                
+                box.addEventListener('dragend', () => {
+                    draggedItem = null;
+                    box.classList.remove('dragging');
+                    imageBoxes.forEach(b => b.classList.remove('drag-over'));
+                });
+                
+                box.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    box.classList.add('drag-over');
+                });
+                
+                box.addEventListener('dragleave', () => {
+                    box.classList.remove('drag-over');
+                });
+                
+                box.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    box.classList.remove('drag-over');
+                    
+                    if (draggedItem && draggedItem !== box) {
+                        // 交换图片数据
+                        const draggedIndex = draggedItem.dataset.index;
+                        const targetIndex = box.dataset.index;
+                        
+                        [imageBase64List[draggedIndex], imageBase64List[targetIndex]] = [
+                            imageBase64List[targetIndex],
+                            imageBase64List[draggedIndex]
+                        ];
+                        
+                        // 交换图片显示
+                        const draggedImg = draggedItem.querySelector('img');
+                        const targetImg = box.querySelector('img');
+                        
+                        if (draggedImg && targetImg) {
+                            [draggedImg.src, targetImg.src] = [targetImg.src, draggedImg.src];
+                        } else if (draggedImg) {
+                            box.insertBefore(draggedImg.cloneNode(true), box.querySelector('.placeholder'));
+                            draggedItem.removeChild(draggedImg);
+                            box.classList.add('has-image');
+                            draggedItem.classList.remove('has-image');
+                        } else if (targetImg) {
+                            draggedItem.insertBefore(targetImg.cloneNode(true), draggedItem.querySelector('.placeholder'));
+                            box.removeChild(targetImg);
+                            draggedItem.classList.add('has-image');
+                            box.classList.remove('has-image');
+                        }
+                    }
+                });
+            });
+        }
+        
+        // 处理粘贴图片
+        function handlePaste(e) {
+            e.preventDefault();
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            const index = e.target.closest('.image-item').dataset.index;
+            
+            for (let item of items) {
+                if (item.kind === 'file') {
+                    const file = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        imageBase64List[index] = event.target.result;
+                        updateImageBox(index, event.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        }
+        
+        // 处理拖拽上传
+        function handleDrop(e, box) {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            const index = box.dataset.index;
+            
+            if (files.length > 0) {
+                // 批量上传处理
+                if (files.length > 1) {
+                    // 清空现有数据（除了当前）
+                    const startIndex = parseInt(index);
+                    for (let i = 0; i < files.length; i++) {
+                        const fileIndex = startIndex + i;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            imageBase64List[fileIndex] = event.target.result;
+                            // 重建布局以显示新图片
+                            if (selectedLayout === 'five-grid') {
+                                rebuildFiveGridStructure();
+                            } else {
+                                rebuildHorizontalStructure();
+                            }
+                            initImageBoxEvents();
+                            initDragDropSwap();
+                        };
+                        reader.readAsDataURL(files[i]);
+                    }
+                } else {
+                    // 单张上传
+                    const file = files[0];
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        imageBase64List[index] = event.target.result;
+                        updateImageBox(index, event.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        }
+        
+        // 处理文件选择
+        function handleFileSelect(e, index) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                if (files.length > 1) {
+                    // 批量上传
+                    const startIndex = parseInt(index);
+                    for (let i = 0; i < files.length; i++) {
+                        const fileIndex = startIndex + i;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            imageBase64List[fileIndex] = event.target.result;
+                            if (selectedLayout === 'five-grid') {
+                                rebuildFiveGridStructure();
+                            } else {
+                                rebuildHorizontalStructure();
+                            }
+                            initImageBoxEvents();
+                            initDragDropSwap();
+                        };
+                        reader.readAsDataURL(files[i]);
+                    }
+                } else {
+                    // 单张上传
+                    const file = files[0];
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        imageBase64List[index] = event.target.result;
+                        updateImageBox(index, event.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        }
+        
+        // 更新图片容器显示（添加has-image类隐藏占位符）
+        function updateImageBox(index, base64) {
+            const box = document.getElementById(`imageBox${index}`);
+            if (box) {
+                let img = box.querySelector('img');
+                if (!img) {
+                    img = document.createElement('img');
+                    img.alt = `游戏图片${index}`;
+                    box.insertBefore(img, box.querySelector('.placeholder'));
+                }
+                img.src = base64;
+                box.classList.add('has-image');
+                // 确保圆角样式生效
+                box.style.borderRadius = `${radiusInput.value}px`;
+            }
+        }
+        
+        // 插入图片
+        function insertImageBefore(index) {
+            if (isInserting) return;
+            isInserting = true;
+            
+            const insertIndex = parseInt(index);
+            currentBoxIndex++;
+            
+            // 更新索引大于等于插入位置的图片
+            const keys = Object.keys(imageBase64List).map(Number).sort((a, b) => b - a);
+            keys.forEach(key => {
+                if (key >= insertIndex) {
+                    imageBase64List[key + 1] = imageBase64List[key];
+                    
+                    const box = document.getElementById(`imageBox${key}`);
+                    if (box) {
+                        box.id = `imageBox${key + 1}`;
+                        box.dataset.index = key + 1;
+                        if (box.querySelector('img')) {
+                            box.querySelector('img').alt = `游戏图片${key + 1}`;
+                        }
+                    }
+                }
+            });
+            
+            // 创建新图片容器
+            imageBase64List[insertIndex] = '';
+            if (selectedLayout === 'five-grid') {
+                rebuildFiveGridStructure();
+            } else {
+                rebuildHorizontalStructure();
+            }
+            
+            initImageBoxEvents();
+            initDragDropSwap();
+            isInserting = false;
+        }
+        
+        // 删除图片
+        function deleteImage(index) {
+            const deleteIndex = parseInt(index);
+            delete imageBase64List[deleteIndex];
+            
+            // 更新索引大于删除位置的图片
+            const keys = Object.keys(imageBase64List).map(Number).sort((a, b) => a - b);
+            keys.forEach(key => {
+                if (key > deleteIndex) {
+                    imageBase64List[key - 1] = imageBase64List[key];
+                    delete imageBase64List[key];
+                    
+                    const box = document.getElementById(`imageBox${key}`);
+                    if (box) {
+                        box.id = `imageBox${key - 1}`;
+                        box.dataset.index = key - 1;
+                        if (box.querySelector('img')) {
+                            box.querySelector('img').alt = `游戏图片${key - 1}`;
+                        }
+                    }
+                }
+            });
+            
+            // 重建布局
+            if (selectedLayout === 'five-grid') {
+                rebuildFiveGridStructure();
+            } else {
+                rebuildHorizontalStructure();
+            }
+            
+            initImageBoxEvents();
+            initDragDropSwap();
+        }
+        
+        // 应用间距设置
+        function applyGapSettings() {
+            const gapValue = gapInput.value;
+            if (selectedLayout === 'five-grid') {
+                imageContainer.style.gap = `${gapValue}px`;
+                const bodyContainer = imageContainer.querySelector('.five-grid-body');
+                if (bodyContainer) {
+                    bodyContainer.style.gap = `${gapValue}px`;
+                }
+            } else {
+                imageContainer.style.gap = `${gapValue}px`;
+            }
+        }
+        
+        // 应用圆角设置
+        function applyRadiusSettings() {
+            const radiusValue = radiusInput.value;
+            const imageBoxes = document.querySelectorAll('.image-item');
+            imageBoxes.forEach(box => {
+                box.style.borderRadius = `${radiusValue}px`;
+            });
+        }
+        
+        // 质量选择
+        qualityBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                qualityBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedQuality = btn.dataset.quality;
+            });
+        });
+        
+        // 下载整图
+        downloadBtn.addEventListener('click', () => {
+            loading.style.display = 'block';
+            
+            setTimeout(() => {
+                const exportContainer = document.getElementById('export-container');
+                const qualityOptions = {
+                    standard: { scale: 1, quality: 0.7 },
+                    hd: { scale: 2, quality: 0.9 },
+                    lossless: { scale: 3, quality: 1.0 }
+                };
+                
+                const options = {
+                    scale: qualityOptions[selectedQuality].scale,
+                    quality: qualityOptions[selectedQuality].quality,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#1f1e25'
+                };
+                
+                html2canvas(exportContainer, options).then(canvas => {
+                    loading.style.display = 'none';
+                    const link = document.createElement('a');
+                    link.download = `${exportTitle.textContent}.png`;
+                    link.href = canvas.toDataURL('image/png', qualityOptions[selectedQuality].quality);
+                    link.click();
+                });
+            }, 100);
+        });
+        
+        // 复制整图
+        copyBtn.addEventListener('click', () => {
+            loading.style.display = 'block';
+            
+            setTimeout(() => {
+                const exportContainer = document.getElementById('export-container');
+                const qualityOptions = {
+                    standard: { scale: 1, quality: 0.7 },
+                    hd: { scale: 2, quality: 0.9 },
+                    lossless: { scale: 3, quality: 1.0 }
+                };
+                
+                const options = {
+                    scale: qualityOptions[selectedQuality].scale,
+                    quality: qualityOptions[selectedQuality].quality,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#1f1e25'
+                };
+                
+                html2canvas(exportContainer, options).then(canvas => {
+                    canvas.toBlob(blob => {
+                        loading.style.display = 'none';
+                        const item = new ClipboardItem({ 'image/png': blob });
+                        navigator.clipboard.write([item]).then(() => {
+                            alert('图片已复制到剪贴板！');
+                        }).catch(err => {
+                            alert('复制失败：' + err);
+                        });
+                    });
+                });
+            }, 100);
+        });
+        
+        // 添加图片按钮
+        addImageBtn.addEventListener('click', () => {
+            currentBoxIndex++;
+            imageBase64List[currentBoxIndex] = '';
+            
+            if (selectedLayout === 'five-grid') {
+                rebuildFiveGridStructure();
+            } else {
+                rebuildHorizontalStructure();
+            }
+            
+            initImageBoxEvents();
+            initDragDropSwap();
+        });
+        
+        // 实时预览 - 间距滑块和输入框联动
+        gapSlider.addEventListener('input', () => {
+            gapInput.value = gapSlider.value;
+            applyGapSettings();
+        });
+        
+        gapInput.addEventListener('input', () => {
+            gapSlider.value = gapInput.value;
+            applyGapSettings();
+        });
+        
+        // 实时预览 - 圆角滑块和输入框联动
+        radiusSlider.addEventListener('input', () => {
+            radiusInput.value = radiusSlider.value;
+            applyRadiusSettings();
+        });
+        
+        radiusInput.addEventListener('input', () => {
+            radiusSlider.value = radiusInput.value;
+            applyRadiusSettings();
+        });
+        
+        // 确认设置按钮（保留函数但隐藏按钮）
+        applySettingsBtn.addEventListener('click', () => {
+            applyGapSettings();
+            applyRadiusSettings();
+        });
+        
+        // 初始化
+        window.addEventListener('load', () => {
+            // 初始化应用间距和圆角设置
+            applyGapSettings();
+            applyRadiusSettings();
+            initImageBoxEvents();
+            initDragDropSwap();
+        });
+    </script>
+</body>
+</html>
